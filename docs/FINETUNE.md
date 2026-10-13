@@ -25,6 +25,8 @@ Regenerate it (about 7 minutes, downloads ENABLE): `python -m laya_hangman.train
 
 ## Train on a free GPU (Kaggle or Colab)
 
+Shortcut: open `notebooks/finetune_laya_hangman.ipynb` in Kaggle/Colab, turn on a GPU, upload `train.jsonl.gz`, Run All. The steps below are the same thing by hand.
+
 1. Get `data/train.jsonl.gz` from this repo onto your computer, then upload it to Kaggle (new Notebook, **Accelerator: GPU T4**, **Internet: On**, add the file as a dataset) or to Colab (GPU runtime, upload the file).
 2. Run, in notebook cells (prefix with `!`) or a terminal:
 
