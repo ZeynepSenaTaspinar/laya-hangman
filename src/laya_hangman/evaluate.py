@@ -34,17 +34,19 @@ class GameResult:
     total: int
     latencies_ms: List[float]
     guesses: str
+    revealed_fraction: float = 0.0  # share of the word's letters revealed when the game ended
 
 
-def play_game(word: str, decider: Decider) -> GameResult:
-    game = HangmanGame(word, MAX_INCORRECT)
+def play_game(word: str, decider: Decider, max_incorrect: int = MAX_INCORRECT) -> GameResult:
+    game = HangmanGame(word, max_incorrect)
     latencies: List[float] = []
     while game.status == IN_PROGRESS:
         decision = decider.decide(DecisionInput.from_game(game))
         latencies.append(decision.latency_ms)
         game.guess(decision.letter)
     return GameResult(word=word, won=game.status == WON, incorrect=game.incorrect_count,
-                      total=len(game.guesses), latencies_ms=latencies, guesses="".join(game.guessed_letters))
+                      total=len(game.guesses), latencies_ms=latencies, guesses="".join(game.guessed_letters),
+                      revealed_fraction=sum(c != "_" for c in game.pattern) / game.length)
 
 
 def summarise(results: Sequence[GameResult], with_latency: bool) -> Dict[str, Any]:
@@ -55,6 +57,7 @@ def summarise(results: Sequence[GameResult], with_latency: bool) -> Dict[str, An
         "win_rate": sum(r.won for r in results) / n if n else None,
         "mean_incorrect_guesses": statistics.fmean(r.incorrect for r in results) if n else None,
         "mean_total_guesses": statistics.fmean(r.total for r in results) if n else None,
+        "mean_revealed_fraction": statistics.fmean(r.revealed_fraction for r in results) if n else None,
     }
     if with_latency:
         lat = sorted(x for r in results for x in r.latencies_ms)
@@ -88,7 +91,7 @@ def run(args: argparse.Namespace) -> Dict[str, Any]:
         words = words[: args.limit]
     report: Dict[str, Any] = {
         "created_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-        "rules": {"max_incorrect": MAX_INCORRECT, "guess_type": "single letters A-Z, no repeats"},
+        "rules": {"max_incorrect": args.max_incorrect, "guess_type": "single letters A-Z, no repeats"},
         "word_set": {
             "split": args.split, "count": len(words),
             "selection": f"sha256(word) mod {EVAL_MODULUS} == 0 -> eval; otherwise dev. Fixed by the word list.",
@@ -117,7 +120,7 @@ def run(args: argparse.Namespace) -> Dict[str, Any]:
         results: List[GameResult] = []
         t0 = time.perf_counter()
         for i, word in enumerate(words, 1):
-            results.append(play_game(word, decider))
+            results.append(play_game(word, decider, args.max_incorrect))
             if args.progress and i % 20 == 0:
                 print(f"  {name}: {i}/{len(words)} games", file=sys.stderr, flush=True)
         report["deciders"][name] = {
@@ -132,14 +135,15 @@ def render_markdown(report: Dict[str, Any]) -> str:
     ws = report["word_set"]
     lines = [f"Word set: `{ws['split']}`, {ws['count']} words (sequence sha256 `{ws['sha256_of_word_sequence'][:16]}…`). "
              f"Rules: {report['rules']['max_incorrect']} incorrect guesses allowed.", "",
-             "| Decider | Games | Win rate | Mean incorrect | Mean total guesses | Mean inference (ms) |",
-             "|---|---:|---:|---:|---:|---:|"]
+             "| Decider | Games | Win rate | Mean incorrect | Mean total guesses | Mean revealed | Mean inference (ms) |",
+             "|---|---:|---:|---:|---:|---:|---:|"]
     for name, data in report["deciders"].items():
         s = data["summary"]
         lat = f"{s['mean_inference_ms']:.1f}" if s.get("mean_inference_ms") is not None else "n/a"
         label = "Laya" if name == "laya" else "Frequency baseline"
         lines.append(f"| {label} | {s['games']} | {s['win_rate'] * 100:.1f}% ({s['wins']}/{s['games']}) | "
-                     f"{s['mean_incorrect_guesses']:.2f} | {s['mean_total_guesses']:.2f} | {lat} |")
+                     f"{s['mean_incorrect_guesses']:.2f} | {s['mean_total_guesses']:.2f} | "
+                     f"{s['mean_revealed_fraction'] * 100:.0f}% | {lat} |")
     return "\n".join(lines)
 
 
@@ -147,6 +151,8 @@ def main(argv: Optional[list] = None) -> None:
     p = argparse.ArgumentParser(prog="python -m laya_hangman.evaluate")
     p.add_argument("--split", choices=["eval", "dev", "all"], default="eval")
     p.add_argument("--deciders", nargs="+", choices=["baseline", "laya"], default=["baseline", "laya"])
+    p.add_argument("--max-incorrect", type=int, default=MAX_INCORRECT,
+                   help="incorrect guesses allowed (the game rule is 6; other values are for supplementary comparisons)")
     p.add_argument("--limit", type=int, default=0, help="only the first N words of the split (smoke runs)")
     p.add_argument("--out", help="write the full JSON report here")
     p.add_argument("--per-game", action="store_true", help="include every game in the JSON report")

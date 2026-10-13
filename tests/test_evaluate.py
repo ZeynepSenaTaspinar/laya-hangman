@@ -84,7 +84,7 @@ def test_laya_run_aborts_instead_of_inventing_results_when_the_model_cannot_load
     monkeypatch.setattr(model, "ModelManager", lambda: real_cls(loader=failing_loader))
 
     class Args:
-        split, limit, deciders, per_game, progress = "eval", 3, ["laya"], False, False
+        split, limit, deciders, per_game, progress, max_incorrect = "eval", 3, ["laya"], False, False, 6
 
     with pytest.raises(SystemExit) as exc:
         evaluate.run(Args)

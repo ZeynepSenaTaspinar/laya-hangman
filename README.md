@@ -132,6 +132,14 @@ state is given as a text pattern with underscores. Laya also prints a warning on
 
 Not tried: option-order averaging, per-letter descriptions, and fine-tuning on Hangman (Laya ships fine-tuning scripts; see its docs). Fine-tuning is the most likely way to make Laya play well.
 
+## Fine-tuning (not done yet)
+
+`data/train.jsonl.gz` and [`docs/FINETUNE.md`](docs/FINETUNE.md) contain a ready Hangman training set (labels come from a dictionary *teacher*, disclosed there,
+with the evaluation words excluded and leave-one-out labels) and the `laya-train` commands for a free Kaggle/Colab GPU. **No fine-tuned checkpoint exists yet and no result is claimed.**
+Supplementary context for interpreting win rates: this repo's word list is mostly 5-7 letters, so with 6 wrong guesses even a strong strategy rarely wins; the evaluation report therefore
+also prints the mean fraction of the word revealed, and `--max-incorrect` allows (clearly labelled) easier comparisons. Baseline on the full evaluation split: 10.8% wins / 63% revealed with 6
+incorrect guesses; 34.5% wins / 83% revealed with 10.
+
 ## Word list
 
 `src/laya_hangman/data/words.txt` is an **original, hand-written list of 1,066 common English words (4-12 letters)** created for this project and released under this repo's MIT license; no third-party list is

@@ -1,0 +1,12 @@
+{
+  "rows": 11292,
+  "teacher_dictionary_words": 151105,
+  "enable_sha256": "3f16130220645692ed49c7134e24a18504c2ca55b3c012f7290e3e77c63b1a89",
+  "enable_source": "https://raw.githubusercontent.com/dolph/dictionary/master/enable1.txt",
+  "eval_words_excluded": 232,
+  "sharpen": 3.0,
+  "dev_words_as_secrets": 834,
+  "extra_enable_secrets": 3000,
+  "seed": 0,
+  "eval_words_sha256": "3515e14afff127c2da3bdea3162e0aa5d407427d9dc7305f3ce4f232b4082c33"
+}
