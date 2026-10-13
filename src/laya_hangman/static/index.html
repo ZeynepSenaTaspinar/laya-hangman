@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Laya Hangman</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<a class="skip" href="#game">Skip to game</a>
+<header class="top">
+  <div>
+    <h1>Laya Hangman</h1>
+    <p class="sub">Pick a secret English word and watch the local Laya decision model guess it, one letter at a time.</p>
+  </div>
+  <div class="status-box" aria-live="polite">
+    <span id="laya-chip" class="chip chip-idle"><span class="dot" aria-hidden="true"></span><span id="laya-chip-text">Laya: checking…</span></span>
+    <p id="laya-detail" class="small muted"></p>
+    <button id="retry-load" type="button" class="secondary" hidden>Retry loading Laya</button>
+  </div>
+</header>
+
+<main>
+  <section id="setup" class="card" aria-labelledby="setup-h">
+    <h2 id="setup-h">1. Choose the secret word</h2>
+    <form id="word-form">
+      <label for="word">Secret word (letters A–Z only, 2–30 letters)</label>
+      <div class="row">
+        <input id="word" name="word" type="password" autocomplete="new-password" inputmode="text" autocapitalize="off" autocorrect="off"
+               spellcheck="false" maxlength="30" aria-describedby="word-help word-error">
+        <label class="check"><input id="show-word" type="checkbox"> Show</label>
+      </div>
+      <p id="word-help" class="small muted">The word is sent only to this local server and is hidden after the game starts.</p>
+      <p id="word-error" class="field-error" role="alert"></p>
+      <div class="row wrap">
+        <button type="submit" id="start-word">Start with this word</button>
+        <button type="button" id="start-random" class="secondary">Random word</button>
+      </div>
+    </form>
+    <fieldset class="engine">
+      <legend>Who guesses?</legend>
+      <label><input type="radio" name="engine" value="laya" checked> Laya (local model)</label>
+      <label><input type="radio" name="engine" value="baseline"> Frequency baseline <em>(not Laya)</em></label>
+    </fieldset>
+  </section>
+
+  <section id="game" class="card" aria-labelledby="game-h" hidden>
+    <h2 id="game-h">2. Watch the guesses</h2>
+    <div class="board">
+      <figure class="gallows">
+        <svg id="hangman" viewBox="0 0 200 240" role="img" aria-label="Hangman drawing: 0 of 6 parts drawn">
+          <g class="frame" fill="none" stroke-width="6" stroke-linecap="round">
+            <line x1="20" y1="226" x2="140" y2="226"/><line x1="50" y1="226" x2="50" y2="20"/>
+            <line x1="50" y1="20" x2="130" y2="20"/><line x1="130" y1="20" x2="130" y2="46"/>
+          </g>
+          <g class="body" fill="none" stroke-width="6" stroke-linecap="round">
+            <circle id="part-1" cx="130" cy="66" r="20"/>
+            <line id="part-2" x1="130" y1="86" x2="130" y2="150"/>
+            <line id="part-3" x1="130" y1="102" x2="102" y2="130"/>
+            <line id="part-4" x1="130" y1="102" x2="158" y2="130"/>
+            <line id="part-5" x1="130" y1="150" x2="106" y2="190"/>
+            <line id="part-6" x1="130" y1="150" x2="154" y2="190"/>
+          </g>
+        </svg>
+        <figcaption id="mistakes" class="mistakes"></figcaption>
+      </figure>
+      <div class="play">
+        <p class="sr-only">Word pattern</p>
+        <div id="pattern" class="pattern" aria-live="polite"></div>
+        <p id="outcome" class="outcome" role="status"></p>
+        <div id="letters" class="letters" role="list" aria-label="Letters"></div>
+      </div>
+    </div>
+    <div class="controls" role="group" aria-label="Game controls">
+      <button type="button" id="next">Next Guess</button>
+      <button type="button" id="auto" class="secondary">Auto Play</button>
+      <button type="button" id="pause" class="secondary" disabled>Pause</button>
+      <button type="button" id="new" class="secondary">New Game</button>
+    </div>
+    <div id="error" class="error" role="alert" hidden>
+      <p id="error-text"></p>
+      <button type="button" id="error-retry" class="secondary">Retry this guess</button>
+    </div>
+    <p id="live" class="sr-only" aria-live="polite"></p>
+  </section>
+
+  <section id="decision" class="card" aria-labelledby="dec-h" hidden>
+    <h2 id="dec-h">Latest guess</h2>
+    <dl class="facts">
+      <div><dt>Guessed by</dt><dd id="d-source">–</dd></div>
+      <div><dt>Selected letter</dt><dd id="d-letter">–</dd></div>
+      <div><dt>Inference duration</dt><dd id="d-latency">–</dd></div>
+      <div><dt>Laya <code>confidence</code></dt><dd id="d-conf">–</dd></div>
+      <div><dt>Laya <code>answer_confidence</code></dt><dd id="d-aconf">–</dd></div>
+    </dl>
+    <h3>Laya's probabilities over the letters that were still available</h3>
+    <div id="probs" class="probs"></div>
+    <p class="small muted">These are the model's own output scores, not a guarantee that a letter is in the word.
+      Nothing here is an explanation of Laya's reasoning: Laya returns scores, not text.</p>
+  </section>
+
+  <section id="history-card" class="card" aria-labelledby="hist-h" hidden>
+    <h2 id="hist-h">Turn history</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th scope="col">#</th><th scope="col">By</th><th scope="col">Letter</th><th scope="col">Result</th>
+          <th scope="col">Pattern after</th><th scope="col">Misses</th><th scope="col">Inference</th></tr></thead>
+        <tbody id="history"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card" id="sees-card" hidden>
+    <details id="sees">
+      <summary>What Laya sees</summary>
+      <p class="small muted">The exact request for the <strong id="sees-which">next</strong> guess, as passed to
+        <code>Agent.predict(state, questions, max_len, head_max_len)</code>. The secret word is not part of it.</p>
+      <pre id="sees-json" tabindex="0"></pre>
+    </details>
+  </section>
+</main>
+<footer class="small muted">
+  Runs locally. Laya: <a href="https://github.com/NandhaKishorM/laya" rel="noopener">github.com/NandhaKishorM/laya</a>
+  (Apache-2.0). <span id="foot-model"></span>
+</footer>
+<script src="/static/app.js"></script>
+</body>
+</html>

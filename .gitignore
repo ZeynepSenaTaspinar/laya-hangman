@@ -1,0 +1,18 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+build/
+dist/
+.env
+.env.*
+# model weights and caches must never be committed
+*.safetensors
+*.bin
+*.onnx
+*.pt
+.cache/
+huggingface/
+results/*.tmp
+node_modules/

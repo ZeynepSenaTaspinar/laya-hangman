@@ -1,0 +1,11 @@
+# Versions actually installed and tested (Python 3.13.16, Linux x86_64). Newer versions may work but are unverified.
+laya==0.4.6
+torch==2.14.1
+transformers==5.19.0
+safetensors==0.8.0
+tokenizers==0.23.3
+numpy==2.5.4
+fastapi==0.143.0
+starlette==1.7.0
+pydantic==2.14.1
+uvicorn==0.54.0

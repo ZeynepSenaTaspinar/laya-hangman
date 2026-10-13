@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "laya-hangman"
+version = "0.1.0"
+description = "Local English Hangman where the Laya decision model guesses the letters"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = ["laya==0.4.6", "fastapi>=0.110", "uvicorn>=0.27"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "httpx>=0.27", "playwright>=1.40"]
+
+[project.scripts]
+laya-hangman = "laya_hangman.server:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+laya_hangman = ["static/*", "data/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["real_model: needs the real Laya checkpoint (set LAYA_REAL_MODEL=1; downloads weights)"]
+addopts = "-m 'not real_model'"

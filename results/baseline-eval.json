@@ -1,0 +1,41 @@
+{
+  "created_utc": "2026-10-13T07:26:10Z",
+  "rules": {
+    "max_incorrect": 6,
+    "guess_type": "single letters A-Z, no repeats"
+  },
+  "word_set": {
+    "split": "eval",
+    "count": 232,
+    "selection": "sha256(word) mod 5 == 0 -> eval; otherwise dev. Fixed by the word list.",
+    "sha256_of_word_sequence": "3515e14afff127c2da3bdea3162e0aa5d407427d9dc7305f3ce4f232b4082c33",
+    "limited_to_first": null
+  },
+  "environment": {
+    "python": "3.13.16",
+    "platform": "Linux-6.18.44-fc-v114-x86_64-with-glibc2.39",
+    "laya_hangman": "0.1.0",
+    "torch": "2.14.1+cu130",
+    "transformers": "5.19.0",
+    "laya": "0.4.6",
+    "huggingface_hub": "2.2.0",
+    "numpy": "2.5.4"
+  },
+  "protocol_note": "Prompt, token budgets and decoding were fixed before any evaluation and were not tuned on the evaluation split.",
+  "deciders": {
+    "baseline": {
+      "config": {
+        "letter_order": "ETAOINSHRDLCUMWFGYPBVKJXQZ"
+      },
+      "summary": {
+        "games": 232,
+        "wins": 25,
+        "win_rate": 0.10775862068965517,
+        "mean_incorrect_guesses": 5.823275862068965,
+        "mean_total_guesses": 9.27155172413793
+      },
+      "wall_seconds": 0.05,
+      "games": "omitted (use --per-game)"
+    }
+  }
+}
