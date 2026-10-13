@@ -5,13 +5,10 @@ A local, English-language Hangman game in which the **[Laya](https://github.com/
 You type a secret word (or draw a random one); Laya guesses one letter per turn. Everything runs on your machine:
 no Jev, no paid API, no text-generating model.
 
-> **Verification status (read this first).** The app, game logic, Laya integration code, tests, browser flow and the
-> frequency baseline were built and verified. **Real Laya inference was NOT run**: the sandbox this was developed in
-> blocks `huggingface.co` (HTTP 403 from the egress proxy), so the checkpoint could not be downloaded. Laya's real
-> `Agent.predict` code path was exercised with a tiny *random-weight* stand-in, which proves the plumbing, not the
-> model's quality. **No Laya win rate or latency is reported anywhere in this repository.** See
-> [Verification](#verification-what-was-and-was-not-checked) and run the two commands in
-> [Real-model checks](#real-model-checks-run-these-on-your-machine) on a machine with Hugging Face access.
+> **Result in one line.** The app works end to end with real local Laya inference, but the stock `convaiinnovations/laya`
+> checkpoint **plays Hangman badly**: 0 wins in 20 games, versus 2 wins for a fixed letter-frequency baseline (see
+> [Measured results](#measured-results)). This is consistent with Laya's own documentation, which says the base checkpoints are
+> near chance zero-shot and meant to be fine-tuned. The sample is small (20 games) and was run on one machine.
 
 ## What does what
 
@@ -41,7 +38,7 @@ The status chip shows: not loaded -> downloading -> loading -> checking -> ready
 
 **macOS.** On Apple Silicon the default PyTorch wheel includes the MPS (Metal) backend, and the app uses it automatically when
 `torch.backends.mps.is_available()` is true. On **Intel Macs** PyTorch stops at 2.2.2, so use the stack Laya documents instead of
-`requirements.txt`: `pip install "numpy<2" "torch==2.2.2" "transformers==4.57.6" laya==0.4.6 fastapi uvicorn` (untested here).
+`requirements.txt`: `pip install -r requirements-intel-mac.txt` (this exact stack, plus `fastapi uvicorn`, was installed and run successfully on an Intel Mac, Python 3.11).
 
 Options (environment variables or flags): `PORT`/`--port`, `HOST`/`--host` (default `127.0.0.1`; binding elsewhere prints a warning and
 exposes secret words you type to your network), `--no-autoload`, `LAYA_DEVICE` (`auto`|`cpu`|`mps`|`cuda`), `LAYA_MODEL`
@@ -52,9 +49,9 @@ exposes secret words you type to your network), `--no-autoload`, `LAYA_DEVICE` (
 * Checkpoint: **`convaiinnovations/laya`** - the English checkpoint (ModernBERT-large encoder, ~421M parameters, 512-token context) that
   Laya's README recommends for English. Package: `laya==0.4.6` on PyPI.
 * Revision: pinned to `55cf4c4ebb4ebe31b2550e8bdf3bd21b99753851`, the reviewed commit listed in `laya/revisions.py` (`PINNED_REVISIONS`) of
-  laya 0.4.6. **It could not be downloaded here, so this pin is taken from Laya's source and was not itself verified.**
+  laya 0.4.6. The app requests exactly this revision; it was downloaded successfully on the owner's machine.
   The app records the revision actually resolved in `/api/status` and in evaluation reports.
-* Download size / memory: not measured here. Laya states ~421M parameters; the files are fetched with `allow_patterns`
+* Download size: `model.safetensors` was 843 MB in the owner's download (about 1 GB in total with tokenizer and encoder config). Memory use was not measured. Cache location: `HF_HUB_CACHE`. Weights are never committed (`.gitignore`).
   `rl_agent_config.json, model.safetensors, tokenizer/*, encoder/*`. Expect on the order of 1-2 GB to download (a rough estimate from the
   parameter count, **unverified**) and similar RAM. Cache location: `HF_HUB_CACHE`. Weights are never committed (`.gitignore`).
 * Hardware: the app reports what PyTorch sees. Priority is CUDA -> Apple MPS -> CPU (Laya's own order). After loading it runs real test
@@ -114,14 +111,26 @@ If Laya cannot load or returns an invalid response the run aborts; nothing is su
 
 ### Measured results
 
-Measured in this repo (`results/baseline-eval.json`, 232 words, 6 incorrect guesses allowed):
+Baseline on the full evaluation split (232 words, 6 incorrect guesses allowed), measured in the dev sandbox (`results/baseline-eval.json`):
+win rate 10.8% (25/232), mean incorrect 5.82, mean total guesses 9.27.
 
-| Decider | Games | Win rate | Mean incorrect | Mean total guesses | Mean inference |
+Side by side on the **first 20 words of the evaluation split**, real Laya inference (`convaiinnovations/laya`, laya 0.4.6, transformers 4.57.6,
+torch 2.2.2, Python 3.11, **Intel Mac, CPU**, `max_len=512`, `head_max_len=192`), run by the repository owner:
+
+| Decider | Games | Win rate | Mean incorrect | Mean total guesses | Mean inference (ms) |
 |---|---:|---:|---:|---:|---:|
-| Frequency baseline | 232 | 10.8% (25/232) | 5.82 | 9.27 | n/a |
-| Laya (`convaiinnovations/laya`) | - | **not measured** (weights unreachable in the dev sandbox) | - | - | - |
+| Frequency baseline | 20 | 10.0% (2/20) | 5.80 | 9.15 | n/a |
+| Laya | 20 | 0.0% (0/20) | 6.00 | 7.30 | 217.5 |
 
-The baseline is deliberately non-adaptive, so it is weak. Whether Laya beats it is unknown until the command above is run with the real model; no claim is made.
+Laya lost every game and found about 1.3 correct letters per game. With only 20 games this is not a precise estimate, but it shows no sign
+that Laya beats the baseline, and **no claim to the contrary is made**. The full 232-word Laya run was not done.
+
+First-turn diagnostic (real model, 26 options): the probabilities are not uniform (top letter about 0.10 against 1/26 = 0.038), but the preferred
+letters are N, R, G, V, Y, Z, J rather than E, T, A, O, I. For "cat", "elephant" and "extraordinary" the top letters were N, N and G. The model reacts to the input
+but has not learned a useful Hangman strategy. Why is not established by this experiment. Plausible causes (unverified): the decision head was never trained for this task, and the
+state is given as a text pattern with underscores. Laya also prints a warning on load that its `choice:11+` temperature is out of range, so its `confidence` values are uncalibrated for 11+ options.
+
+Not tried: option-order averaging, per-letter descriptions, and fine-tuning on Hangman (Laya ships fine-tuning scripts; see its docs). Fine-tuning is the most likely way to make Laya play well.
 
 ## Word list
 
@@ -146,7 +155,9 @@ redistributed. Spelling of every word was checked once against the public-domain
 | Browser flow (invalid word, masked input, next guess, auto play to the end, pause, New Game with a late response, error + retry, baseline label, 375px layout) | **Passed against a labelled mock Laya** (a bug where Auto Play stopped itself during inference was found and fixed this way) |
 | The real app started with the real loader | **Verified**: shows `error` with the 403 message and hint, Laya turns return HTTP 503, baseline turns work |
 | Hardware detection (CUDA/MPS/CPU) | CPU path observed; **MPS/CUDA paths untested** (no such hardware) |
-| Real checkpoint download, load, inference latency, real token budget, Laya's playing strength | **UNVERIFIED** - blocked by network policy |
+| Real checkpoint download, load and inference on an Intel Mac CPU (reported by the owner); 20-game comparison above | **Verified on the owner's machine** (not reproduced by the author of this code) |
+| Real-tokenizer token-budget report (`/api/status -> model.budget`) | Startup check passed (the app reached `ready`); the numbers were not captured |
+| Full 232-word Laya evaluation, Apple Silicon (MPS) path, real-model pytest smoke test | **Not run** |
 
 ## License
 
